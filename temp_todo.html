@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temp Todo Tool</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        .editor-container {
+            display: flex;
+            justify-content: center;
+        }
+        
+        #text-editor {
+            width: 800px;
+            height: 80vh;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        #text-editor:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <h1>Temp Todo Tool</h1>
+    
+    <div class="editor-container">
+        <textarea id="text-editor" placeholder="Start typing your todo items here..."></textarea>
+    </div>
+    
+    <script>
+        const editor = document.getElementById('text-editor');
+        
+        editor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                const value = this.value;
+                
+                if (e.shiftKey) {
+                    // Shift+Tab: Un-indent
+                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    const lineEnd = value.indexOf('\n', start);
+                    const lineEndPos = lineEnd === -1 ? value.length : lineEnd;
+                    const currentLine = value.substring(lineStart, lineEndPos);
+                    
+                    if (currentLine.startsWith('    ')) {
+                        const newLine = currentLine.substring(4);
+                        const newValue = value.substring(0, lineStart) + newLine + value.substring(lineEndPos);
+                        this.value = newValue;
+                        
+                        // Adjust cursor position
+                        if (start === end) {
+                            this.selectionStart = this.selectionEnd = Math.max(lineStart, start - 4);
+                        } else {
+                            this.selectionStart = start - 4;
+                            this.selectionEnd = end - 4;
+                        }
+                    }
+                } else {
+                    // Tab: Indent
+                    const newValue = value.substring(0, start) + '    ' + value.substring(end);
+                    this.value = newValue;
+                    this.selectionStart = this.selectionEnd = start + 4;
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                
+                const start = this.selectionStart;
+                const value = this.value;
+                const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                const currentLine = value.substring(lineStart, start);
+                
+                // Find the indentation of the current line
+                let indent = '';
+                for (let i = 0; i < currentLine.length && currentLine[i] === ' '; i++) {
+                    indent += ' ';
+                }
+                
+                // Insert newline with same indentation
+                const newValue = value.substring(0, start) + '\n' + indent + value.substring(start);
+                this.value = newValue;
+                this.selectionStart = this.selectionEnd = start + 1 + indent.length;
+            }
+        });
+    </script>
+</body>
+</html>

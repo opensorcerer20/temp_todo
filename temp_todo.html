@@ -29,7 +29,7 @@
             height: 80vh;
             border: 2px solid #ddd;
             border-radius: 8px;
-            padding: 15px;
+            padding: 15px 15px 15px 40px;
             font-family: 'Courier New', monospace;
             font-size: 14px;
             line-height: 1.5;
@@ -46,17 +46,93 @@
             border-color: #007bff;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
         }
+        
+        .editor-wrapper {
+            position: relative;
+        }
+        
+        .checkbox-overlay {
+            position: absolute;
+            left: 20px;
+            top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            pointer-events: none;
+            user-select: none;
+            z-index: 1;
+        }
+        
+        .checkbox-line {
+            display: block;
+            min-height: 1.5em;
+            position: relative;
+        }
+        
+        .checkbox-line input[type="checkbox"] {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-40%);
+            pointer-events: auto;
+            margin: 0;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
     <h1>Temp Todo Tool</h1>
     
     <div class="editor-container">
-        <textarea id="text-editor" placeholder="Start typing your todo items here..."></textarea>
+        <div class="editor-wrapper">
+            <textarea id="text-editor" placeholder="Start typing your todo items here..."></textarea>
+            <div id="checkbox-overlay" class="checkbox-overlay"></div>
+        </div>
     </div>
     
     <script>
         const editor = document.getElementById('text-editor');
+        const checkboxOverlay = document.getElementById('checkbox-overlay');
+        
+        // Track maximum indentation for each line
+        const lineMaxIndents = new Map();
+        
+        // Function to update checkbox overlay
+        function updateCheckboxes() {
+            const value = editor.value;
+            const lines = value.split('\n');
+            let checkboxHTML = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const indent = line.match(/^(\s*)/)[0];
+                const indentPixels = indent.length * 8; // 8px per space
+                
+                checkboxHTML += `<div class="checkbox-line" style="margin-left: ${indentPixels}px;">
+                    <input type="checkbox" class="line-checkbox" data-line="${i}">
+                </div>`;
+            }
+            
+            checkboxOverlay.innerHTML = checkboxHTML;
+            
+            // Add event listeners to new checkboxes
+            const checkboxes = checkboxOverlay.querySelectorAll('.line-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    // Checkbox functionality - no text modification needed
+                    // The checkbox state is maintained in the overlay
+                });
+            });
+        }
+        
+        // Update checkboxes when text changes
+        editor.addEventListener('input', updateCheckboxes);
+        editor.addEventListener('scroll', function() {
+            checkboxOverlay.scrollTop = editor.scrollTop;
+        });
+        
+        // Initialize checkboxes
+        updateCheckboxes();
         
         editor.addEventListener('keydown', function(e) {
             if (e.key === 'Tab') {
@@ -67,7 +143,7 @@
                 const value = this.value;
                 
                 if (e.shiftKey) {
-                    // Shift+Tab: Un-indent
+                    // Shift+Tab: Un-indent (unchanged)
                     const lineStart = value.lastIndexOf('\n', start - 1) + 1;
                     const lineEnd = value.indexOf('\n', start);
                     const lineEndPos = lineEnd === -1 ? value.length : lineEnd;
@@ -87,11 +163,32 @@
                         }
                     }
                 } else {
-                    // Tab: Indent
-                    const newValue = value.substring(0, start) + '    ' + value.substring(end);
-                    this.value = newValue;
-                    this.selectionStart = this.selectionEnd = start + 4;
+                    // Tab: Add 4 spaces only if line hasn't reached max indent
+                    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+                    const lineEnd = value.indexOf('\n', start);
+                    const lineEndPos = lineEnd === -1 ? value.length : lineEnd;
+                    const currentLine = value.substring(lineStart, lineEndPos);
+                    
+                    // Count current indentation (spaces at start of line)
+                    const currentIndent = currentLine.match(/^(\s*)/)[0].length;
+                    const lineIndex = value.substring(0, lineStart).split('\n').length - 1;
+                    
+                    // Get or set max indent for this line
+                    if (!lineMaxIndents.has(lineIndex)) {
+                        lineMaxIndents.set(lineIndex, currentIndent);
+                    }
+                    const maxIndent = lineMaxIndents.get(lineIndex);
+                    
+                    // Only allow one additional indent (4 spaces) beyond the original max
+                    if (currentIndent < maxIndent + 4) {
+                        const newValue = value.substring(0, start) + '    ' + value.substring(end);
+                        this.value = newValue;
+                        this.selectionStart = this.selectionEnd = start + 4;
+                    }
                 }
+                
+                // Update checkboxes after indentation change
+                updateCheckboxes();
             } else if (e.key === 'Enter') {
                 e.preventDefault();
                 
@@ -110,6 +207,13 @@
                 const newValue = value.substring(0, start) + '\n' + indent + value.substring(start);
                 this.value = newValue;
                 this.selectionStart = this.selectionEnd = start + 1 + indent.length;
+                
+                // Reset max indent tracking for the new line
+                const newLineIndex = value.substring(0, start).split('\n').length;
+                lineMaxIndents.set(newLineIndex, indent.length);
+                
+                // Update checkboxes after new line
+                updateCheckboxes();
             }
         });
     </script>
